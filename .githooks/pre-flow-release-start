@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# pre-flow-release-start
+#
+# Hook that runs before a release branch is created.
+# Arguments:
+#   $1 - VERSION: the release version (e.g., 1.2.0)
+#   $2 - BASE: the base branch (e.g., main)
+#
+# Purpose: Pull latest main before creating the release branch
+# so the release always starts from an up-to-date state.
+
+set -e
+
+VERSION="$1"
+BASE="${2:-main}"
+
+echo "Pulling latest '$BASE' before creating release/$VERSION..."
+
+# Fetch and update the base branch without switching to it
+if git remote get-url origin &>/dev/null; then
+  git fetch origin "${BASE}:${BASE}" --update-head-ok 2>/dev/null || {
+    echo "Warning: Could not update '$BASE' from remote. Proceeding with local state."
+  }
+  echo "✓ '$BASE' is up to date."
+else
+  echo "Warning: No remote 'origin' found. Skipping pull."
+fi

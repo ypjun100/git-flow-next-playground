@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+# post-flow-release-start
+#
+# Hook that runs after a release branch is created.
+# Arguments:
+#   $1 - VERSION: the release version (e.g., 1.2.0)
+#   $2 - BASE: the base branch (e.g., main)
+#   $3 - BRANCH: the full release branch name (e.g., release/1.2.0)
+#
+# Purpose: Update package.json version to match the release version.
+
+set -e
+
+VERSION="$1"
+BRANCH="${3:-release/${VERSION}}"
+PACKAGE_JSON="package.json"
+
+if [[ -z "$VERSION" ]]; then
+  echo "Warning: VERSION argument not provided. Skipping package.json update."
+  exit 0
+fi
+
+if [[ ! -f "$PACKAGE_JSON" ]]; then
+  echo "Warning: $PACKAGE_JSON not found. Skipping version update."
+  exit 0
+fi
+
+CURRENT_VERSION=$(grep '"version"' "$PACKAGE_JSON" | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+
+if [[ "$CURRENT_VERSION" == "$VERSION" ]]; then
+  echo "package.json version is already $VERSION. No update needed."
+  exit 0
+fi
+
+echo "Updating package.json version: $CURRENT_VERSION → $VERSION"
+
+# Update version in package.json (macOS compatible)
+sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$PACKAGE_JSON"
+
+# Commit the version bump
+git add "$PACKAGE_JSON"
+git commit -m "chore: bump version to $VERSION"
+
+echo "✓ package.json version updated to $VERSION and committed."

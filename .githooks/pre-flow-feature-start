@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# pre-flow-feature-start
+#
+# Hook that runs before a feature branch is created.
+# Arguments:
+#   $1 - NAME: the feature branch name (without prefix)
+#   $2 - BASE: the base branch to start from
+#
+# Purpose: Enforce that feature branches are always created from a
+# release branch. If no base is provided or it's not a release branch,
+# prompt the user to specify one.
+
+NAME="$1"
+BASE="$2"
+
+_show_available_releases() {
+  local releases
+  releases=$(git branch | grep -E "^\*? *release/" | sed 's/^[* ] */  /' | sort -V)
+  if [[ -n "$releases" ]]; then
+    echo ""
+    echo "Available release branches:"
+    echo "$releases"
+  else
+    echo ""
+    echo "No local release branches found."
+    echo "Create one first: git flow release start <version>"
+  fi
+}
+
+# Require a base branch
+if [[ -z "$BASE" ]]; then
+  echo "Error: A release branch must be specified when starting a feature branch."
+  echo ""
+  echo "Usage:  git flow feature start <name> <release/x.y.z>"
+  echo "Example: git flow feature start my-feature release/1.2.0"
+  _show_available_releases
+  exit 1
+fi
+
+# Enforce that the base is a release branch
+if [[ "$BASE" != release/* ]]; then
+  echo "Error: feature branches must start from a release branch, got '$BASE'."
+  echo ""
+  echo "Usage:  git flow feature start <name> <release/x.y.z>"
+  _show_available_releases
+  exit 1
+fi
+
+# Verify the release branch actually exists
+if ! git branch --list "$BASE" | grep -q .; then
+  echo "Error: release branch '$BASE' does not exist locally."
+  _show_available_releases
+  exit 1
+fi
+
+echo "✓ Starting feature/$NAME from $BASE"
