@@ -44,10 +44,17 @@ _create_tag_and_exit() {
     fi
   fi
 
-  # Clean up release branch
+  # Clean up release branch (local + remote)
   if git branch --list "$RELEASE_BRANCH" | grep -q .; then
     git branch -d "$RELEASE_BRANCH" 2>/dev/null && echo "  ✓ Local branch $RELEASE_BRANCH deleted." || \
-      echo "  Warning: Could not delete local branch $RELEASE_BRANCH (has unmerged commits?)."
+      git branch -D "$RELEASE_BRANCH" 2>/dev/null && echo "  ✓ Local branch $RELEASE_BRANCH force-deleted." || \
+      echo "  Warning: Could not delete local branch $RELEASE_BRANCH."
+  fi
+
+  if git remote get-url origin &>/dev/null; then
+    git push origin --delete "$RELEASE_BRANCH" 2>/dev/null \
+      && echo "  ✓ Remote branch $RELEASE_BRANCH deleted." \
+      || echo "  Note: Remote branch $RELEASE_BRANCH not found or already deleted."
   fi
 
   echo "======================================================================"
