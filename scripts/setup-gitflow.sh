@@ -56,8 +56,9 @@ git flow init \
 
 # ── 4. Configure branch types ────────────────────────────────────────────────
 
-# Remove develop if present
-git flow config delete base develop 2>/dev/null || true
+# git flow init always creates a 'develop' config entry — remove it directly
+# via git config to ensure it's fully gone regardless of dependency checks.
+git config --remove-section 'gitflow.branch.develop' 2>/dev/null || true
 
 # Remove topic types that will be re-added with correct settings
 for TYPE in fix feature release support bugfix; do
