@@ -36,14 +36,35 @@ if gh release view "$TAG" &>/dev/null 2>&1; then
   exit 0
 fi
 
+# Resolve GitHub repo URL for commit hyperlinks
+_get_repo_url() {
+  local remote_url
+  remote_url=$(git remote get-url origin 2>/dev/null || echo "")
+  if [[ "$remote_url" =~ ^git@github\.com:(.+?)(\.git)?$ ]]; then
+    echo "https://github.com/${BASH_REMATCH[1]}"
+  elif [[ "$remote_url" =~ ^https://github\.com/(.+?)(\.git)?$ ]]; then
+    echo "https://github.com/${BASH_REMATCH[1]}"
+  else
+    echo ""
+  fi
+}
+
+REPO_URL=$(_get_repo_url)
+
 # Build release notes: commits between the previous tag and this tag
 PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || echo "")
 
 if [[ -n "$PREV_TAG" ]]; then
-  RELEASE_NOTES=$(git log "${PREV_TAG}..${TAG}" --pretty=format:"- %s" --no-merges 2>/dev/null)
+  LOG_RANGE="${PREV_TAG}..${TAG}"
 else
-  RELEASE_NOTES=$(git log "${TAG}" --pretty=format:"- %s" --no-merges 2>/dev/null | head -30)
+  LOG_RANGE="${TAG}"
 fi
+
+RELEASE_NOTES=$(git log "$LOG_RANGE" --pretty=format:"%H %s" --no-merges 2>/dev/null | head -30 | \
+  while IFS= read -r line; do
+    sha="${line%% *}"; msg="${line#* }"
+    [[ -n "$REPO_URL" ]] && echo "- [${msg}](${REPO_URL}/commit/${sha})" || echo "- ${msg}"
+  done)
 
 gh release create "$TAG" \
   --title "$TAG" \

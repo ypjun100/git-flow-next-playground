@@ -21,28 +21,53 @@ VERSION="$1"
 RELEASE_BRANCH="release/${VERSION}"
 TAG="${VERSION}"
 
+# ── Resolve GitHub repo URL for commit hyperlinks ───────────────────────────
+_get_repo_url() {
+  local remote_url
+  remote_url=$(git remote get-url origin 2>/dev/null || echo "")
+  if [[ "$remote_url" =~ ^git@github\.com:(.+?)(\.git)?$ ]]; then
+    echo "https://github.com/${BASH_REMATCH[1]}"
+  elif [[ "$remote_url" =~ ^https://github\.com/(.+?)(\.git)?$ ]]; then
+    echo "https://github.com/${BASH_REMATCH[1]}"
+  else
+    echo ""
+  fi
+}
+
+REPO_URL=$(_get_repo_url)
+
 # ── Compute release notes before any branch switching ───────────────────────
 # Get commits that exist in RELEASE_BRANCH but not in main.
 # Falls back to commits since the previous tag if the branch is already merged.
 _get_release_notes() {
-  local prev_tag
-  prev_tag=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || echo "")
-
-  local notes
-  if [[ -n "$prev_tag" ]]; then
-    # Commits unique to the release branch
-    notes=$(git log "${prev_tag}..${RELEASE_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null)
-    # If already merged, fall back to commits on current HEAD since prev tag
-    if [[ -z "$notes" ]]; then
-      notes=$(git log "${prev_tag}..HEAD" --pretty=format:"- %s" --no-merges 2>/dev/null)
+  local log_range="$1"
+  local notes=""
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    local sha="${line%% *}"
+    local msg="${line#* }"
+    if [[ -n "$REPO_URL" ]]; then
+      notes+="- [${msg}](${REPO_URL}/commit/${sha})"$'\n'
+    else
+      notes+="- ${msg}"$'\n'
     fi
-  else
-    notes=$(git log "${RELEASE_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null | head -30)
-  fi
-  echo "$notes"
+  done < <(git log "$log_range" --pretty=format:"%H %s" --no-merges 2>/dev/null)
+  echo "${notes%$'\n'}"
 }
 
-RELEASE_NOTES=$(_get_release_notes)
+prev_tag=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || echo "")
+
+if [[ -n "$prev_tag" ]]; then
+  RELEASE_NOTES=$(_get_release_notes "${prev_tag}..${RELEASE_BRANCH}")
+  if [[ -z "$RELEASE_NOTES" ]]; then
+    RELEASE_NOTES=$(_get_release_notes "${prev_tag}..HEAD")
+  fi
+else
+  RELEASE_NOTES=$(git log "${RELEASE_BRANCH}" --pretty=format:"%H %s" --no-merges 2>/dev/null | head -30 | while IFS= read -r line; do
+    sha="${line%% *}"; msg="${line#* }"
+    [[ -n "$REPO_URL" ]] && echo "- [${msg}](${REPO_URL}/commit/${sha})" || echo "- ${msg}"
+  done)
+fi
 
 # ── Helper: create GitHub Release ───────────────────────────────────────────
 _create_github_release() {
