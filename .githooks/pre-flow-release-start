@@ -4,7 +4,7 @@
 #
 # Hook that runs before a release branch is created.
 # Arguments:
-#   $1 - VERSION: the release version (e.g., 1.2.0)
+#   $1 - VERSION: the release version (e.g., v1.2.0)
 #   $2 - BASE: the base branch (e.g., main)
 #
 # Purpose: Pull latest main before creating the release branch

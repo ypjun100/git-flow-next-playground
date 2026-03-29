@@ -4,7 +4,7 @@
 #
 # Hook that runs before a release branch is finished.
 # Arguments:
-#   $1 - VERSION: the release version (e.g., 1.2.0)
+#   $1 - VERSION: the release version (e.g., v1.2.0)
 #
 # Purpose: Check if the release branch was already merged into main via
 # a GitHub PR. If already merged, create a tag on main and abort the
@@ -17,7 +17,8 @@
 
 VERSION="$1"
 RELEASE_BRANCH="release/${VERSION}"
-TAG="v${VERSION}"
+# VERSION already includes "v" (e.g., v1.2.0), so use it directly as the tag
+TAG="${VERSION}"
 
 _create_tag_and_exit() {
   local message="$1"

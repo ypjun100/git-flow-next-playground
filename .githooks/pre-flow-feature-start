@@ -32,8 +32,8 @@ _show_available_releases() {
 if [[ -z "$BASE" ]]; then
   echo "Error: A release branch must be specified when starting a feature branch."
   echo ""
-  echo "Usage:  git flow feature start <name> <release/x.y.z>"
-  echo "Example: git flow feature start my-feature release/1.2.0"
+  echo "Usage:  git flow feature start <name> <release/vx.y.z>"
+  echo "Example: git flow feature start my-feature release/v1.2.0"
   _show_available_releases
   exit 1
 fi
@@ -42,7 +42,7 @@ fi
 if [[ "$BASE" != release/* ]]; then
   echo "Error: feature branches must start from a release branch, got '$BASE'."
   echo ""
-  echo "Usage:  git flow feature start <name> <release/x.y.z>"
+  echo "Usage:  git flow feature start <name> <release/vx.y.z>"
   _show_available_releases
   exit 1
 fi
