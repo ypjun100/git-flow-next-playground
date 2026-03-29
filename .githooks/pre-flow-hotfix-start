@@ -2,28 +2,16 @@
 #
 # pre-flow-hotfix-start
 #
-# Hook that runs before a hotfix branch is created.
-# Arguments:
-#   $1 - VERSION: branch name without prefix (e.g., v1.2.1)
-#   $2 - ORIGIN:  remote name (e.g., origin)
-#   $3 - BRANCH:  full branch name (e.g., hotfix/v1.2.1)
-#   $4 - BASE:    base branch (e.g., main)
-#
-# Purpose: Pull latest base branch before creating the hotfix branch
-# so the hotfix always starts from an up-to-date state.
+# Prevents direct use of `git flow hotfix start`.
+# Hotfix branches complicate version management — use a release branch instead.
 
-set -e
-
-VERSION="$1"
-BASE="${4:-main}"
-
-echo "Pulling latest '$BASE' before creating hotfix/$VERSION..."
-
-if git remote get-url origin &>/dev/null; then
-  git fetch origin "${BASE}:${BASE}" --update-head-ok 2>/dev/null || {
-    echo "Warning: Could not update '$BASE' from remote. Proceeding with local state."
-  }
-  echo "✓ '$BASE' is up to date."
-else
-  echo "Warning: No remote 'origin' found. Skipping pull."
-fi
+echo ""
+echo "Error: 'git flow hotfix start' is not allowed in this project."
+echo ""
+echo "Please create a release branch for the fix:"
+echo "  git flow release start <version>"
+echo ""
+echo "Example:"
+echo "  git flow release start v1.2.1"
+echo ""
+exit 1
