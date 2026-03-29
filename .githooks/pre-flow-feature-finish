@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# pre-flow-feature-finish
+#
+# Prevents direct use of `git flow feature finish`.
+# Feature branches must be merged via GitHub PR targeting the release branch.
+
+NAME="$1"
+BRANCH="$3"
+
+echo ""
+echo "Error: 'git flow feature finish' is not allowed in this project."
+echo ""
+echo "Feature branches must be merged via GitHub Pull Request:"
+echo "  1. git push origin ${BRANCH:-feature/$NAME}"
+echo "  2. Open a PR on GitHub with base: <release/vx.y.z>"
+echo "  3. Merge after code review"
+echo ""
+exit 1
