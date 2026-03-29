@@ -1,12 +1,12 @@
 #!/bin/bash
 #
-# post-flow-release-finish
+# post-flow-hotfix-finish
 #
-# Hook that runs after a release branch is finished by git-flow.
+# Hook that runs after a hotfix branch is finished by git-flow.
 # Arguments:
-#   $1 - VERSION: the release version (e.g., v1.2.0)
+#   $1 - VERSION: the hotfix version (e.g., v1.2.1)
 #   $2 - ORIGIN:  remote name (e.g., origin)
-#   $3 - BRANCH:  full branch name (e.g., release/v1.2.0)
+#   $3 - BRANCH:  full branch name (e.g., hotfix/v1.2.1)
 #
 # Purpose: Push main + tag to origin, then create a GitHub Release with
 #          commit messages since the previous tag as release notes.
@@ -36,7 +36,6 @@ if gh release view "$TAG" &>/dev/null 2>&1; then
   exit 0
 fi
 
-# Build release notes: commits between the previous tag and this tag
 PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || echo "")
 
 if [[ -n "$PREV_TAG" ]]; then
