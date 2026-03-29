@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-# pre-flow-release-finish
+# pre-flow-hotfix-finish
 #
-# Hook that runs before a release branch is finished.
+# Hook that runs before a hotfix branch is finished.
 # Arguments:
-#   $1 - VERSION: the release version (e.g., v1.2.0)
+#   $1 - VERSION: the hotfix version (e.g., v1.2.1)
 #   $2 - ORIGIN:  remote name (e.g., origin)
-#   $3 - BRANCH:  full branch name (e.g., release/v1.2.0)
+#   $3 - BRANCH:  full branch name (e.g., hotfix/v1.2.1)
 #
-# Purpose: Check if the release branch was already merged into main via
+# Purpose: Check if the hotfix branch was already merged into main via
 # a GitHub PR. If already merged, create a tag + GitHub Release on main
 # and abort the git-flow finish to prevent a duplicate merge.
 #
@@ -18,26 +18,22 @@
 #   - Not merged             → proceed with normal git-flow finish
 
 VERSION="$1"
-RELEASE_BRANCH="release/${VERSION}"
+HOTFIX_BRANCH="hotfix/${VERSION}"
 TAG="${VERSION}"
 
 # ── Compute release notes before any branch switching ───────────────────────
-# Get commits that exist in RELEASE_BRANCH but not in main.
-# Falls back to commits since the previous tag if the branch is already merged.
 _get_release_notes() {
   local prev_tag
   prev_tag=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || echo "")
 
   local notes
   if [[ -n "$prev_tag" ]]; then
-    # Commits unique to the release branch
-    notes=$(git log "${prev_tag}..${RELEASE_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null)
-    # If already merged, fall back to commits on current HEAD since prev tag
+    notes=$(git log "${prev_tag}..${HOTFIX_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null)
     if [[ -z "$notes" ]]; then
       notes=$(git log "${prev_tag}..HEAD" --pretty=format:"- %s" --no-merges 2>/dev/null)
     fi
   else
-    notes=$(git log "${RELEASE_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null | head -30)
+    notes=$(git log "${HOTFIX_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null | head -30)
   fi
   echo "$notes"
 }
@@ -56,10 +52,9 @@ _create_github_release() {
     return
   fi
 
-  local notes_body="${RELEASE_NOTES:-No release notes available.}"
   gh release create "$TAG" \
     --title "$TAG" \
-    --notes "$notes_body" \
+    --notes "${RELEASE_NOTES:-No release notes available.}" \
     && echo "  ✓ GitHub Release $TAG created." \
     || echo "  Warning: Failed to create GitHub Release $TAG."
 }
@@ -82,7 +77,7 @@ _create_tag_and_exit() {
   if git tag -l | grep -qx "$TAG"; then
     echo "  Tag $TAG already exists — skipping tag creation."
   else
-    git tag -a "$TAG" -m "Release $TAG"
+    git tag -a "$TAG" -m "$TAG"
     echo "  ✓ Tag $TAG created on main."
     if git remote get-url origin &>/dev/null; then
       git push origin "$TAG" && echo "  ✓ Tag $TAG pushed to origin."
@@ -92,49 +87,47 @@ _create_tag_and_exit() {
   # Create GitHub Release
   _create_github_release
 
-  # Clean up release branch (local + remote)
-  if git branch --list "$RELEASE_BRANCH" | grep -q .; then
-    git branch -d "$RELEASE_BRANCH" 2>/dev/null && echo "  ✓ Local branch $RELEASE_BRANCH deleted." || \
-      git branch -D "$RELEASE_BRANCH" 2>/dev/null && echo "  ✓ Local branch $RELEASE_BRANCH force-deleted." || \
-      echo "  Warning: Could not delete local branch $RELEASE_BRANCH."
+  # Clean up hotfix branch (local + remote)
+  if git branch --list "$HOTFIX_BRANCH" | grep -q .; then
+    git branch -d "$HOTFIX_BRANCH" 2>/dev/null && echo "  ✓ Local branch $HOTFIX_BRANCH deleted." || \
+      git branch -D "$HOTFIX_BRANCH" 2>/dev/null && echo "  ✓ Local branch $HOTFIX_BRANCH force-deleted." || \
+      echo "  Warning: Could not delete local branch $HOTFIX_BRANCH."
   fi
 
   if git remote get-url origin &>/dev/null; then
-    git push origin --delete "$RELEASE_BRANCH" 2>/dev/null \
-      && echo "  ✓ Remote branch $RELEASE_BRANCH deleted." \
-      || echo "  Note: Remote branch $RELEASE_BRANCH not found or already deleted."
+    git push origin --delete "$HOTFIX_BRANCH" 2>/dev/null \
+      && echo "  ✓ Remote branch $HOTFIX_BRANCH deleted." \
+      || echo "  Note: Remote branch $HOTFIX_BRANCH not found or already deleted."
   fi
 
   echo "======================================================================"
   echo ""
-  echo "  Release $VERSION completed. git-flow finish has been skipped."
+  echo "  Hotfix $VERSION completed. git-flow finish has been skipped."
   echo ""
 
-  # Exit 1 to abort git-flow's built-in finish (we already handled it)
   exit 1
 }
 
-# ── Check 1: git-level merge check (catches regular merge commits) ──────────
-if git branch --merged main 2>/dev/null | grep -qE "^\*? *${RELEASE_BRANCH}$"; then
-  _create_tag_and_exit "Release $RELEASE_BRANCH already merged into main (git)"
+# ── Check 1: git-level merge check ──────────────────────────────────────────
+if git branch --merged main 2>/dev/null | grep -qE "^\*? *${HOTFIX_BRANCH}$"; then
+  _create_tag_and_exit "Hotfix $HOTFIX_BRANCH already merged into main (git)"
 fi
 
-# ── Check 2: GitHub PR check (catches squash/rebase-merged PRs) ─────────────
+# ── Check 2: GitHub PR check ─────────────────────────────────────────────────
 if command -v gh &>/dev/null; then
   PR_NUMBER=$(gh pr list \
     --base main \
-    --head "$RELEASE_BRANCH" \
+    --head "$HOTFIX_BRANCH" \
     --state merged \
     --json number \
     --jq '.[0].number' 2>/dev/null || echo "")
 
   if [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "null" ]]; then
-    # Pull main to ensure squash/rebase-merged commits are present locally
     git checkout main --quiet
     if git remote get-url origin &>/dev/null; then
       git pull origin main --quiet 2>/dev/null || true
     fi
-    _create_tag_and_exit "Release $RELEASE_BRANCH already merged via GitHub PR #${PR_NUMBER}"
+    _create_tag_and_exit "Hotfix $HOTFIX_BRANCH already merged via GitHub PR #${PR_NUMBER}"
   fi
 else
   echo "Note: 'gh' CLI not found. Skipping GitHub PR merge check."
@@ -142,5 +135,5 @@ else
 fi
 
 # ── Not merged: proceed with normal git-flow finish ─────────────────────────
-echo "No prior merge detected for $RELEASE_BRANCH. Proceeding with git-flow release finish..."
+echo "No prior merge detected for $HOTFIX_BRANCH. Proceeding with git-flow hotfix finish..."
 exit 0
