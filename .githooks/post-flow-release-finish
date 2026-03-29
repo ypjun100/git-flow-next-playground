@@ -5,8 +5,11 @@
 # Hook that runs after a release branch is finished by git-flow.
 # Arguments:
 #   $1 - VERSION: the release version (e.g., v1.2.0)
+#   $2 - ORIGIN:  remote name (e.g., origin)
+#   $3 - BRANCH:  full branch name (e.g., release/v1.2.0)
 #
-# Purpose: Push the tag and updated main branch to origin.
+# Purpose: Push main + tag to origin, then create a GitHub Release with
+#          commit messages since the previous tag as release notes.
 
 VERSION="$1"
 TAG="${VERSION}"
@@ -16,9 +19,34 @@ if ! git remote get-url origin &>/dev/null; then
   exit 0
 fi
 
+# ── Push main and tag ────────────────────────────────────────────────────────
 echo "Pushing main and tag $TAG to origin..."
-
 git push origin main
 git push origin "$TAG"
-
 echo "✓ main and tag $TAG pushed to origin."
+
+# ── Create GitHub Release ────────────────────────────────────────────────────
+if ! command -v gh &>/dev/null; then
+  echo "Note: 'gh' CLI not found. Skipping GitHub Release creation."
+  exit 0
+fi
+
+if gh release view "$TAG" &>/dev/null 2>&1; then
+  echo "Note: GitHub Release $TAG already exists — skipping."
+  exit 0
+fi
+
+# Build release notes: commits between the previous tag and this tag
+PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || echo "")
+
+if [[ -n "$PREV_TAG" ]]; then
+  RELEASE_NOTES=$(git log "${PREV_TAG}..${TAG}" --pretty=format:"- %s" --no-merges 2>/dev/null)
+else
+  RELEASE_NOTES=$(git log "${TAG}" --pretty=format:"- %s" --no-merges 2>/dev/null | head -30)
+fi
+
+gh release create "$TAG" \
+  --title "Release $TAG" \
+  --notes "${RELEASE_NOTES:-No release notes available.}" \
+  && echo "✓ GitHub Release $TAG created." \
+  || echo "Warning: Failed to create GitHub Release $TAG."

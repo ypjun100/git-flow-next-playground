@@ -5,21 +5,66 @@
 # Hook that runs before a release branch is finished.
 # Arguments:
 #   $1 - VERSION: the release version (e.g., v1.2.0)
+#   $2 - ORIGIN:  remote name (e.g., origin)
+#   $3 - BRANCH:  full branch name (e.g., release/v1.2.0)
 #
 # Purpose: Check if the release branch was already merged into main via
-# a GitHub PR. If already merged, create a tag on main and abort the
-# git-flow finish to prevent a duplicate merge.
+# a GitHub PR. If already merged, create a tag + GitHub Release on main
+# and abort the git-flow finish to prevent a duplicate merge.
 #
 # Behavior:
-#   - Already merged (git)   → create tag, clean up branch, abort
-#   - Already merged (PR)    → create tag, clean up branch, abort
+#   - Already merged (git)   → create tag + GitHub Release, clean up branch, abort
+#   - Already merged (PR)    → create tag + GitHub Release, clean up branch, abort
 #   - Not merged             → proceed with normal git-flow finish
 
 VERSION="$1"
 RELEASE_BRANCH="release/${VERSION}"
-# VERSION already includes "v" (e.g., v1.2.0), so use it directly as the tag
 TAG="${VERSION}"
 
+# ── Compute release notes before any branch switching ───────────────────────
+# Get commits that exist in RELEASE_BRANCH but not in main.
+# Falls back to commits since the previous tag if the branch is already merged.
+_get_release_notes() {
+  local prev_tag
+  prev_tag=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1 2>/dev/null || echo "")
+
+  local notes
+  if [[ -n "$prev_tag" ]]; then
+    # Commits unique to the release branch
+    notes=$(git log "${prev_tag}..${RELEASE_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null)
+    # If already merged, fall back to commits on current HEAD since prev tag
+    if [[ -z "$notes" ]]; then
+      notes=$(git log "${prev_tag}..HEAD" --pretty=format:"- %s" --no-merges 2>/dev/null)
+    fi
+  else
+    notes=$(git log "${RELEASE_BRANCH}" --pretty=format:"- %s" --no-merges 2>/dev/null | head -30)
+  fi
+  echo "$notes"
+}
+
+RELEASE_NOTES=$(_get_release_notes)
+
+# ── Helper: create GitHub Release ───────────────────────────────────────────
+_create_github_release() {
+  if ! command -v gh &>/dev/null; then
+    echo "  Note: 'gh' CLI not found. Skipping GitHub Release creation."
+    return
+  fi
+
+  if gh release view "$TAG" &>/dev/null 2>&1; then
+    echo "  Note: GitHub Release $TAG already exists — skipping."
+    return
+  fi
+
+  local notes_body="${RELEASE_NOTES:-No release notes available.}"
+  gh release create "$TAG" \
+    --title "Release $TAG" \
+    --notes "$notes_body" \
+    && echo "  ✓ GitHub Release $TAG created." \
+    || echo "  Warning: Failed to create GitHub Release $TAG."
+}
+
+# ── Helper: create tag + GitHub Release + cleanup, then abort git-flow ───────
 _create_tag_and_exit() {
   local message="$1"
   echo ""
@@ -43,6 +88,9 @@ _create_tag_and_exit() {
       git push origin "$TAG" && echo "  ✓ Tag $TAG pushed to origin."
     fi
   fi
+
+  # Create GitHub Release
+  _create_github_release
 
   # Clean up release branch (local + remote)
   if git branch --list "$RELEASE_BRANCH" | grep -q .; then
