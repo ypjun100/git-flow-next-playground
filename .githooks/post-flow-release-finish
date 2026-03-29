@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# post-flow-release-finish
+#
+# Hook that runs after a release branch is finished by git-flow.
+# Arguments:
+#   $1 - VERSION: the release version (e.g., v1.2.0)
+#
+# Purpose: Push the tag and updated main branch to origin.
+
+VERSION="$1"
+TAG="${VERSION}"
+
+if ! git remote get-url origin &>/dev/null; then
+  echo "No remote 'origin' found. Skipping push."
+  exit 0
+fi
+
+echo "Pushing main and tag $TAG to origin..."
+
+git push origin main
+git push origin "$TAG"
+
+echo "✓ main and tag $TAG pushed to origin."
