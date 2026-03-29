@@ -4,15 +4,17 @@
 #
 # Hook that runs before a fix branch is created.
 # Arguments:
-#   $1 - NAME: the fix branch name (without prefix)
-#   $2 - BASE: the base branch to start from
+#   $1 - NAME:   branch name without prefix
+#   $2 - ORIGIN: remote name (e.g., origin)
+#   $3 - BRANCH: full branch name (e.g., fix/my-fix)
+#   $4 - BASE:   base branch to start from
 #
 # Purpose: Enforce that fix branches are always created from a
 # release branch. If no base is provided or it's not a release branch,
 # prompt the user to specify one.
 
 NAME="$1"
-BASE="$2"
+BASE="$4"
 
 _show_available_releases() {
   local releases

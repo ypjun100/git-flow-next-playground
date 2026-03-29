@@ -4,8 +4,10 @@
 #
 # Hook that runs before a release branch is created.
 # Arguments:
-#   $1 - VERSION: the release version (e.g., v1.2.0)
-#   $2 - BASE: the base branch (e.g., main)
+#   $1 - VERSION: branch name without prefix (e.g., v1.2.0)
+#   $2 - ORIGIN:  remote name (e.g., origin)
+#   $3 - BRANCH:  full branch name (e.g., release/v1.2.0)
+#   $4 - BASE:    base branch (e.g., main)
 #
 # Purpose: Pull latest main before creating the release branch
 # so the release always starts from an up-to-date state.
@@ -13,7 +15,7 @@
 set -e
 
 VERSION="$1"
-BASE="${2:-main}"
+BASE="${4:-main}"
 
 echo "Pulling latest '$BASE' before creating release/$VERSION..."
 

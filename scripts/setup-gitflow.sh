@@ -36,11 +36,19 @@ else
   ok "gh: $(gh --version | head -1)"
 fi
 
-# ── 2. Configure git hooks path ──────────────────────────────────────────────
+# ── 2. Link hooks into .git/hooks/ ──────────────────────────────────────────
+# git-flow-next ignores core.hooksPath and reads hooks only from .git/hooks/.
+# We keep the hook scripts version-controlled in .githooks/ and create
+# symlinks in .git/hooks/ so git-flow-next can find them.
 
-git config core.hooksPath .githooks
 chmod +x .githooks/*
-ok "Git hooks configured at .githooks/"
+mkdir -p .git/hooks
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+for hook in .githooks/*; do
+  hook_name="$(basename "$hook")"
+  ln -sf "${REPO_ROOT}/${hook}" ".git/hooks/${hook_name}"
+done
+ok "Hooks symlinked: .githooks/* → .git/hooks/"
 
 # ── 3. Initialize git-flow ───────────────────────────────────────────────────
 
