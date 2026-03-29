@@ -47,6 +47,7 @@ fi
 
 gh release create "$TAG" \
   --title "$TAG" \
-  --notes "${RELEASE_NOTES:-No release notes available.}" \
+  --notes "## Changes
+${RELEASE_NOTES:-No release notes available.}" \
   && echo "✓ GitHub Release $TAG created." \
   || echo "Warning: Failed to create GitHub Release $TAG."

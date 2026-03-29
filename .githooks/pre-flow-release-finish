@@ -56,7 +56,8 @@ _create_github_release() {
     return
   fi
 
-  local notes_body="${RELEASE_NOTES:-No release notes available.}"
+  local notes_body="## Changes
+${RELEASE_NOTES:-No release notes available.}"
   gh release create "$TAG" \
     --title "$TAG" \
     --notes "$notes_body" \
